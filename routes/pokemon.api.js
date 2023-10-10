@@ -16,7 +16,6 @@ router.get("/", (req, res, next) => {
       if (!allowedFilter.includes(key)) {
         const exception = new Error(`Query ${key} is not allowed`);
         exception.statusCode = 401;
-
         throw exception;
       }
       if (!filterQuery[key]) delete filterQuery[key];
@@ -57,6 +56,50 @@ router.get("/", (req, res, next) => {
     }
     //then select number of result by offset
     result = result.slice(offset, offset + limit);
+    //----------------------send response----------------------
+    res.status(200).send(result);
+  } catch (error) {
+    next(error);
+  }
+});
+router.get("/:id", (req, res, next) => {
+  //----------------------input validation----------------------
+  try {
+    const { id } = req.params;
+    //----------------------processing logic----------------------
+    //Read data from db.json then parse to JSobject
+    let db = fs.readFileSync("db.json", "utf-8");
+    db = JSON.parse(db);
+    const { data } = db;
+    let result = [];
+
+    if (parseInt(id) > data.length || parseInt(id) < 0) {
+      const exception = new Error(`Pokemon ID is not found`);
+      exception.statusCode = 401;
+      throw exception;
+    }
+
+    let pokemon;
+    pokemon = data.filter(
+      (p) =>
+        p.id === parseInt(id) ||
+        p.id - 1 === parseInt(id) ||
+        p.id + 1 === parseInt(id)
+    );
+
+    if (pokemon.length < 3) {
+      if (pokemon[0].id <= 2) {
+        pokemon.push(data[data.length - 1]);
+      } else if (pokemon[0].id > data.length - 2) {
+        pokemon.push(data[0]);
+      }
+    }
+
+    result = {
+      previousPokemon: pokemon[0],
+      pokemon: pokemon[1],
+      nextPokemon: pokemon[2],
+    };
     //----------------------send response----------------------
     res.status(200).send(result);
   } catch (error) {
