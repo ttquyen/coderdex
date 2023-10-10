@@ -12,7 +12,7 @@ const convertData = async () => {
       types: e.Type2
         ? [e.Type1.toLowerCase(), e.Type2.toLowerCase()]
         : [e.Type1.toLowerCase()],
-      url: `http://localhost:5500/images/pokemon/${index + 1}.png`,
+      url: `/images/pokemon/${index + 1}.png`,
     }))
     .filter((p) => p.id < 722);
   //   console.log(newData);
