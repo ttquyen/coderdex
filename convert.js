@@ -7,9 +7,9 @@ const convertData = async () => {
   let data = JSON.parse(fs.readFileSync("db.json"));
   newData = newData
     .map((e, index) => ({
-      id: index + 1,
+      id: (index + 1).toString(),
       name: e.Name,
-      type: e.Type2
+      types: e.Type2
         ? [e.Type1.toLowerCase(), e.Type2.toLowerCase()]
         : [e.Type1.toLowerCase()],
       url: `http://localhost:5500/images/pokemon/${index + 1}.png`,

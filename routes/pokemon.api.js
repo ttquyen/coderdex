@@ -49,7 +49,7 @@ router.get("/", (req, res, next) => {
     let db = fs.readFileSync("db.json", "utf-8");
 
     db = JSON.parse(db);
-    const { data } = db;
+    const { data, totalPokemons } = db;
     //Filter data by title
     let result = [];
     if (filterKeys.length) {
@@ -75,8 +75,10 @@ router.get("/", (req, res, next) => {
     } else {
       result = data;
     }
+    let pokemonList = result.slice(offset, offset + limit);
     //then select number of result by offset
-    result = result.slice(offset, offset + limit);
+    result = { data: pokemonList, count: pokemonList.length, totalPokemons };
+
     //----------------------send response----------------------
     res.status(200).send(result);
   } catch (error) {
@@ -85,44 +87,52 @@ router.get("/", (req, res, next) => {
 });
 
 /* GET single pokemon info. */
-router.get("/:id", (req, res, next) => {
+router.get("/:pokemonId", (req, res, next) => {
   //----------------------input validation----------------------
   try {
-    const { id } = req.params;
+    const { pokemonId } = req.params;
     //----------------------processing logic----------------------
     //Read data from db.json then parse to JSobject
     let db = fs.readFileSync("db.json", "utf-8");
     db = JSON.parse(db);
     const { data } = db;
-    let result = [];
+    let result = {};
 
-    if (parseInt(id) > data.length || parseInt(id) < 0) {
+    if (parseInt(pokemonId) < 0) {
       const exception = new Error(`Pokemon ID is not found`);
       exception.statusCode = 401;
       throw exception;
     }
 
-    let pokemon;
-    pokemon = data.filter(
-      (p) =>
-        p.id === parseInt(id) ||
-        p.id - 1 === parseInt(id) ||
-        p.id + 1 === parseInt(id)
-    );
-
-    if (pokemon.length < 3) {
-      if (pokemon[0].id <= 2) {
-        pokemon.push(data[data.length - 1]);
-      } else if (pokemon[0].id > data.length - 2) {
-        pokemon.push(data[0]);
-      }
+    const targetIndex = data.findIndex((pokemon) => pokemon.id === pokemonId);
+    if (targetIndex === -1) {
+      result = {};
+    } else if (targetIndex === 0) {
+      result = {
+        data: {
+          previousPokemon: data[data.length - 1],
+          pokemon: data[targetIndex],
+          nextPokemon: data[targetIndex + 1],
+        },
+      };
+    } else if (targetIndex === data.length - 1) {
+      result = {
+        data: {
+          previousPokemon: data[targetIndex - 1],
+          pokemon: data[targetIndex],
+          nextPokemon: data[0],
+        },
+      };
+    } else {
+      result = {
+        data: {
+          previousPokemon: data[targetIndex - 1],
+          pokemon: data[targetIndex],
+          nextPokemon: data[targetIndex + 1],
+        },
+      };
     }
 
-    result = {
-      previousPokemon: pokemon[0],
-      pokemon: pokemon[1],
-      nextPokemon: pokemon[2],
-    };
     //----------------------send response----------------------
     res.status(200).send(result);
   } catch (error) {
@@ -137,23 +147,23 @@ router.post("/", (req, res, next) => {
   //----------------------processing logic----------------------
   //check missing required data
   try {
-    const { name, id, url, type } = req.body;
-    if (!name || !id || !url || !type) {
+    const { name, id, url, types } = req.body;
+    if (!name || !id || !url || !types) {
       const exception = new Error(`Missing body info`);
       exception.statusCode = 401;
       throw exception;
     }
 
     //check type length > 2
-    if (type.length > 2) {
+    if (types.length > 2) {
       const exception = new Error(`Length of type is smaller than 3`);
       exception.statusCode = 401;
       throw exception;
     }
 
     //check invalid type
-    for (let i = 0; i < type.length; i++) {
-      if (!pokemonTypes.includes(type[i])) {
+    for (let i = 0; i < types.length; i++) {
+      if (!pokemonTypes.includes(types[i])) {
         const exception = new Error(`Type is invalid`);
         exception.statusCode = 401;
         throw exception;
@@ -167,16 +177,16 @@ router.post("/", (req, res, next) => {
     //The Pokémon already exists.” (if id or name exists in the database)
     let duplicatePokemon;
     duplicatePokemon = data.filter(
-      (pokemon) => pokemon.id === parseInt(id) || pokemon.name === "name"
+      (pokemon) => pokemon.id === id || pokemon.name === "name"
     );
     if (duplicatePokemon.length > 0) {
       const exception = new Error(`Id or Name exists in the database`);
       exception.statusCode = 401;
       throw exception;
     }
-    let result = { id: parseInt(id), name, type, url };
+    let result = { id: id, name, types, url };
     data.push(result);
-    db.data = data;
+    db.data = data.sort((a, b) => a.id - b.id);
     db.totalPokemons = data.length;
     //db JSobject to JSON string
     db = JSON.stringify(db);
@@ -192,7 +202,7 @@ router.post("/", (req, res, next) => {
 router.put("/:pokemonId", (req, res, next) => {
   //----------------------put input validation----------------------
   try {
-    const allowUpdate = ["name", "id", "type", "url"];
+    const allowUpdate = ["name", "id", "types", "url"];
 
     const { pokemonId } = req.params;
 
@@ -212,9 +222,7 @@ router.put("/:pokemonId", (req, res, next) => {
     db = JSON.parse(db);
     const { data } = db;
     //find book by id
-    const targetIndex = data.findIndex(
-      (pokemon) => pokemon.id === parseInt(pokemonId)
-    );
+    const targetIndex = data.findIndex((pokemon) => pokemon.id === pokemonId);
     if (targetIndex < 0) {
       const exception = new Error(`Pokemon not found`);
       exception.statusCode = 404;
@@ -246,9 +254,7 @@ router.delete("/:pokemonId", (req, res, next) => {
     db = JSON.parse(db);
     const { data } = db;
     //find pokemon by id
-    const targetIndex = data.findIndex(
-      (pokemon) => pokemon.id === parseInt(pokemonId)
-    );
+    const targetIndex = data.findIndex((pokemon) => pokemon.id === pokemonId);
 
     if (targetIndex < 0) {
       const exception = new Error(`Pokemon not found`);
@@ -256,7 +262,7 @@ router.delete("/:pokemonId", (req, res, next) => {
       throw exception;
     }
     //filter db data object
-    db.data = data.filter((pokemon) => pokemon.id !== parseInt(pokemonId));
+    db.data = data.filter((pokemon) => pokemon.id !== pokemonId);
     db.totalPokemons = db.data.length;
     //db JSobject to JSON string
     db = JSON.stringify(db);
