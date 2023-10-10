@@ -2,6 +2,27 @@ var express = require("express");
 var router = express.Router();
 const fs = require("fs");
 
+const pokemonTypes = [
+  "bug",
+  "dragon",
+  "fairy",
+  "fire",
+  "ghost",
+  "ground",
+  "normal",
+  "psychic",
+  "steel",
+  "dark",
+  "electric",
+  "fighting",
+  "flyingText",
+  "grass",
+  "ice",
+  "poison",
+  "rock",
+  "water",
+];
+
 /* GET pokemons listing. */
 router.get("/", (req, res, next) => {
   //----------------------input validation----------------------
@@ -62,6 +83,8 @@ router.get("/", (req, res, next) => {
     next(error);
   }
 });
+
+/* GET single pokemon info. */
 router.get("/:id", (req, res, next) => {
   //----------------------input validation----------------------
   try {
@@ -100,6 +123,65 @@ router.get("/:id", (req, res, next) => {
       pokemon: pokemon[1],
       nextPokemon: pokemon[2],
     };
+    //----------------------send response----------------------
+    res.status(200).send(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/* POST a new pokemon */
+router.post("/", (req, res, next) => {
+  //----------------------input validation----------------------
+
+  //----------------------processing logic----------------------
+  //check missing required data
+  try {
+    const { name, id, url, type } = req.body;
+    if (!name || !id || !url || !type) {
+      const exception = new Error(`Missing body info`);
+      exception.statusCode = 401;
+      throw exception;
+    }
+
+    //check type length > 2
+    if (type.length > 2) {
+      const exception = new Error(`Length of type is smaller than 3`);
+      exception.statusCode = 401;
+      throw exception;
+    }
+
+    //check invalid type
+    for (let i = 0; i < type.length; i++) {
+      if (!pokemonTypes.includes(type[i])) {
+        const exception = new Error(`Type is invalid`);
+        exception.statusCode = 401;
+        throw exception;
+      }
+    }
+
+    //Read data from db.json then parse to JSobject
+    let db = fs.readFileSync("db.json", "utf-8");
+    db = JSON.parse(db);
+    const { data } = db;
+    //The Pokémon already exists.” (if id or name exists in the database)
+    let duplicatePokemon;
+    duplicatePokemon = data.filter(
+      (pokemon) => pokemon.id === parseInt(id) || pokemon.name === "name"
+    );
+    if (duplicatePokemon.length > 0) {
+      const exception = new Error(`Id or Name exists in the database`);
+      exception.statusCode = 401;
+      throw exception;
+    }
+    let result = { id: parseInt(id), name, type, url };
+    data.push(result);
+    db.data = data;
+    db.totalPokemons = data.length;
+    //db JSobject to JSON string
+    db = JSON.stringify(db);
+    //write and save to db.json
+    fs.writeFileSync("db.json", db);
     //----------------------send response----------------------
     res.status(200).send(result);
   } catch (error) {
