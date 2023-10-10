@@ -188,7 +188,7 @@ router.post("/", (req, res, next) => {
     next(error);
   }
 });
-
+/* PUT a pokemon */
 router.put("/:pokemonId", (req, res, next) => {
   //----------------------put input validation----------------------
   try {
@@ -231,6 +231,40 @@ router.put("/:pokemonId", (req, res, next) => {
     fs.writeFileSync("db.json", db);
     //----------------------put send response----------------------
     res.status(200).send(updatedPokemon);
+  } catch (error) {
+    next(error);
+  }
+});
+/* DEL a pokemon */
+router.delete("/:pokemonId", (req, res, next) => {
+  //----------------------delete input validation----------------------
+  try {
+    const { pokemonId } = req.params;
+    //delete processing
+    //Read data from db.json then parse to JSobject
+    let db = fs.readFileSync("db.json", "utf-8");
+    db = JSON.parse(db);
+    const { data } = db;
+    //find pokemon by id
+    const targetIndex = data.findIndex(
+      (pokemon) => pokemon.id === parseInt(pokemonId)
+    );
+
+    if (targetIndex < 0) {
+      const exception = new Error(`Pokemon not found`);
+      exception.statusCode = 404;
+      throw exception;
+    }
+    //filter db data object
+    db.data = data.filter((pokemon) => pokemon.id !== parseInt(pokemonId));
+    db.totalPokemons = db.data.length;
+    //db JSobject to JSON string
+    db = JSON.stringify(db);
+
+    //write and save to db.json
+    fs.writeFileSync("db.json", db);
+    //----------------------delete send response----------------------
+    res.status(200).send({});
   } catch (error) {
     next(error);
   }
